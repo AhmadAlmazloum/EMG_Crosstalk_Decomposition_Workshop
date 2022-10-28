@@ -1,2 +1,2 @@
-# EMG_Crosstalk_Decomposition_Workshop
+# EMG Crosstalk and Decomposition Workshop
  
