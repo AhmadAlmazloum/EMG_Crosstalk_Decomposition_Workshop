@@ -1,34 +1,50 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import scipy.io as scio
 
-
-# Definig the font style to the required
-plt.rcParams["font.size"] = 14
 
 # Initilaize global variable
 color_scale = np.zeros(2)
 
 
-def generate_sources(s1,s2):
+# Definig the font style to the required
+def config_plots():
+    plt.rcParams.update(
+        {
+            #   "axes.spines.top" : False,
+            #   "axes.spines.right" : False,
+            "font.size": 12,
+            #   "xtick.major.size" : 5,
+            #   "ytick.major.size" : 5,
+            #   'xtick.labelsize': "small",
+            #   'ytick.labelsize': "small",
+            #   'legend.fontsize': "small"
+        }
+    )
+
+
+def generate_sources(s1, s2):
     global color_scale
 
     color_scale = s1
 
-    print("Mean s1 = ", round(s1.mean(),3), "\t\tStd s1 = ", round(s1.std(ddof=1),3)),
-    print("Mean s2 = ", round(s2.mean(),3), "\t\tStd s2 = ", round(s2.std(ddof=1),3),'\n')
+    print("Mean s1 = ", round(s1.mean(), 3), "\t\tStd s1 = ", round(s1.std(ddof=1), 3)),
+    print("Mean s2 = ", round(s2.mean(), 3), "\t\tStd s2 = ", round(s2.std(ddof=1), 3), "\n")
 
-def plot_sources_time_domain(y1, y2, sampling_frequency = 2048):
-  plt.figure()
-  plt.plot(np.arange(y1.__len__())/sampling_frequency,y1,color=(0.9412, 0.3922, 0.3922, 0.8))
-  plt.xlabel("Time (s)")
-  plt.ylabel("$s_1(t)$")
-  plt.show()
 
-  plt.figure()
-  plt.plot(np.arange(y2.__len__())/sampling_frequency,y2,color=(0.3922, 2 * 0.3922, 1.0, 0.8))
-  plt.xlabel("Time (s)")
-  plt.ylabel("$s_2(t)$")
-  plt.show()
+def plot_sources_time_domain(y1, y2, sampling_frequency=2048):
+    plt.figure()
+    plt.plot(np.arange(y1.__len__()) / sampling_frequency, y1, color=(0.9412, 0.3922, 0.3922, 0.8))
+    plt.xlabel("Time (s)")
+    plt.ylabel("$s_1(t)$")
+    plt.show()
+
+    plt.figure()
+    plt.plot(np.arange(y2.__len__()) / sampling_frequency, y2, color=(0.3922, 2 * 0.3922, 1.0, 0.8))
+    plt.xlabel("Time (s)")
+    plt.ylabel("$s_2(t)$")
+    plt.show()
+
 
 def plot_sources_and_observations(x, y, var="sources", eigen=False, H=np.array([])):
 
@@ -139,112 +155,133 @@ def plot_sources_and_observations(x, y, var="sources", eigen=False, H=np.array([
 
     plt.show()
 
+
+def import_Mat_file(filePath: str):
+
+    if filePath[-4:] != ".mat":
+
+        filePath = "".join([filePath, ".mat"])
+
+    matFile = scio.loadmat(filePath)
+
+    f_sampling = matFile["SamplingFrequency"][0, 0]
+
+    time_samples = matFile["Time"][0, 0].reshape(-1)
+
+    sEMG = matFile["Data"][0, 0]
+
+    if sEMG.shape[1] < sEMG.shape[0]:
+        sEMG = sEMG.T
+
+    return f_sampling, time_samples, sEMG
+
+
 class Skewness:
-  """Class that defines the Skweness function, G(w) = (w^4)/4, and its first and second derivatives.
-  Then it can be use as Cost Function in the Fixed Point Algorithm (fastICA).
-  """
-
-  @staticmethod
-  def g(w: np.ndarray) -> np.ndarray:
-    """First derivative of Skewness function
-    G(w) = (w^4)/4 -> dG(w)/dw = g(w) = w^3
-    Parameters
-    ----------
-        w ([float]): The i-th separation vector.
-    Returns
-    ----------
-        ([float]): The i-th separation vector with all elments being the squared of the original.
-    """
-    return np.power(w, 3)
-
-  @staticmethod
-  def dg_dw(w: np.ndarray) -> np.ndarray:
-    """Second derivative of Skewness function
-    G(w) = (w^4)/4 -> d^2G(w)/dw^2 = dg(w)/dw = 3*w^2
-    Parameters
-    ----------
-        w ([float]): The i-th separation vector.
-    Returns
-    ----------
-        ([float]): The i-th separation vector with all elments being the twice the original.
+    """Class that defines the Skweness function, G(w) = (w^4)/4, and its first and second derivatives.
+    Then it can be use as Cost Function in the Fixed Point Algorithm (fastICA).
     """
 
-    return 3 * np.square(w)
+    @staticmethod
+    def g(w: np.ndarray) -> np.ndarray:
+        """First derivative of Skewness function
+        G(w) = (w^4)/4 -> dG(w)/dw = g(w) = w^3
+        Parameters
+        ----------
+            w ([float]): The i-th separation vector.
+        Returns
+        ----------
+            ([float]): The i-th separation vector with all elments being the squared of the original.
+        """
+        return np.power(w, 3)
+
+    @staticmethod
+    def dg_dw(w: np.ndarray) -> np.ndarray:
+        """Second derivative of Skewness function
+        G(w) = (w^4)/4 -> d^2G(w)/dw^2 = dg(w)/dw = 3*w^2
+        Parameters
+        ----------
+            w ([float]): The i-th separation vector.
+        Returns
+        ----------
+            ([float]): The i-th separation vector with all elments being the twice the original.
+        """
+
+        return 3 * np.square(w)
 
 
 class LogCosh:
-  """Class that defines the Log Cosh function, G(w) = log(cosh(w)), and its first and second derivatives.
-  Then it can be use as Cost Function in the Fixed Point Algorithm (fastICA). Here is used the natural
-  logarithm, so the cost function becomes G(w) = ln(cosh(w)).
-  """
-
-  @staticmethod
-  def g(w: np.ndarray) -> np.ndarray:
-    """First derivative of Log Cosh function
-    G(w) = ln(cosh(w)) -> dG(w)/dw = g(w) = tanh(w)
-    Parameters
-    ----------
-        w ([float]): The i-th separation vector.
-    Returns
-    ----------
-        ([float]): The i-th separation vector with all elments being the hyperbolic tangent of the original elements.
+    """Class that defines the Log Cosh function, G(w) = log(cosh(w)), and its first and second derivatives.
+    Then it can be use as Cost Function in the Fixed Point Algorithm (fastICA). Here is used the natural
+    logarithm, so the cost function becomes G(w) = ln(cosh(w)).
     """
-    # If is desired use logarithms in another base, by example, in base 10, then the return must be:
-    # return np.tanh(w) / np.log(10) # equals to np.tanh(w) / 2.302585092994046
-    return np.tanh(w) / 2.302585092994046
-    # return np.tanh(w)
 
-  @staticmethod
-  def dg_dw(w: np.ndarray) -> np.ndarray:
-    """Second derivative of Log Cosh function
-    G(w) = ln(cosh(w)) -> d^2G(w)/dw^2 = dg(w)/dw = sech^2(w) = 1 - tanh^2(w)
-    Parameters
-    ----------
-        w ([float]): The i-th separation vector.
-    Returns
-    ----------
-        ([float]): The i-th separation vector with all elments being the hyperbolic squared secant of the original elements.
-    """
-    # If is desired use logarithms in another base, by example, in base 10, then the return must be:
-    # return (1 - np.square(np.tanh(w))) / np.log(10)
-    return (1 - np.square(np.tanh(w))) / 2.302585092994046
-    # return (1 - np.square(np.tanh(w)))
+    @staticmethod
+    def g(w: np.ndarray) -> np.ndarray:
+        """First derivative of Log Cosh function
+        G(w) = ln(cosh(w)) -> dG(w)/dw = g(w) = tanh(w)
+        Parameters
+        ----------
+            w ([float]): The i-th separation vector.
+        Returns
+        ----------
+            ([float]): The i-th separation vector with all elments being the hyperbolic tangent of the original elements.
+        """
+        # If is desired use logarithms in another base, by example, in base 10, then the return must be:
+        # return np.tanh(w) / np.log(10) # equals to np.tanh(w) / 2.302585092994046
+        return np.tanh(w) / 2.302585092994046
+        # return np.tanh(w)
+
+    @staticmethod
+    def dg_dw(w: np.ndarray) -> np.ndarray:
+        """Second derivative of Log Cosh function
+        G(w) = ln(cosh(w)) -> d^2G(w)/dw^2 = dg(w)/dw = sech^2(w) = 1 - tanh^2(w)
+        Parameters
+        ----------
+            w ([float]): The i-th separation vector.
+        Returns
+        ----------
+            ([float]): The i-th separation vector with all elments being the hyperbolic squared secant of the original elements.
+        """
+        # If is desired use logarithms in another base, by example, in base 10, then the return must be:
+        # return (1 - np.square(np.tanh(w))) / np.log(10)
+        return (1 - np.square(np.tanh(w))) / 2.302585092994046
+        # return (1 - np.square(np.tanh(w)))
 
 
 class ExpSquared:
-  """Class that defines the Exponetial of w squared function, G(w) = exp(-(w^2)/2), and its first and
-  second derivatives. Then it can be use as Cost Function in the Fixed Point Algorithm (fastICA).
-  """
-
-  @staticmethod
-  def g(w: np.ndarray) -> np.ndarray:
-    """First derivative of Exponetial of w squared function
-    G(w) = exp(-(w^2)/2) -> dG(w)/dw = g(w) = -exp(-(w^2)/2)*w
-    Parameters
-    ----------
-        w ([float]): The i-th separation vector.
-    Returns
-    ----------
-        ([float]): The i-th separation vector with all elments being the G(w) function
-        times the negative of the original elements.
+    """Class that defines the Exponetial of w squared function, G(w) = exp(-(w^2)/2), and its first and
+    second derivatives. Then it can be use as Cost Function in the Fixed Point Algorithm (fastICA).
     """
 
-    return (-w) * np.exp((-1 / 2) * w * w)
+    @staticmethod
+    def g(w: np.ndarray) -> np.ndarray:
+        """First derivative of Exponetial of w squared function
+        G(w) = exp(-(w^2)/2) -> dG(w)/dw = g(w) = -exp(-(w^2)/2)*w
+        Parameters
+        ----------
+            w ([float]): The i-th separation vector.
+        Returns
+        ----------
+            ([float]): The i-th separation vector with all elments being the G(w) function
+            times the negative of the original elements.
+        """
 
-  @staticmethod
-  def dg_dw(w: np.ndarray) -> np.ndarray:
-    """Second derivative of Exponetial of w squared function
-    G(w) = exp(-(w^2)/2) -> d^2G(w)/dw^2 = dg(w)/dw = (exp(-(w^2)/2))*(w^2 - 1)
-    Parameters
-    ----------
-        w ([float]): The i-th separation vector.
-    Returns
-    ----------
-        ([float]): The i-th separation vector with all elments being the G(w) function
-        times the squared original elements minus 1.
-    """
+        return (-w) * np.exp((-1 / 2) * w * w)
 
-    return ((w * w) - 1) * np.exp((-1 / 2) * w * w)
+    @staticmethod
+    def dg_dw(w: np.ndarray) -> np.ndarray:
+        """Second derivative of Exponetial of w squared function
+        G(w) = exp(-(w^2)/2) -> d^2G(w)/dw^2 = dg(w)/dw = (exp(-(w^2)/2))*(w^2 - 1)
+        Parameters
+        ----------
+            w ([float]): The i-th separation vector.
+        Returns
+        ----------
+            ([float]): The i-th separation vector with all elments being the G(w) function
+            times the squared original elements minus 1.
+        """
+
+        return ((w * w) - 1) * np.exp((-1 / 2) * w * w)
 
 
 def fastICA(z: np.ndarray, M: int = 120, max_iter: int = 50, Tolx: float = 0.0001, cost: int = 1):
@@ -272,11 +309,11 @@ def fastICA(z: np.ndarray, M: int = 120, max_iter: int = 50, Tolx: float = 0.000
     BB: np.ndarray = 0 * np.identity(z.shape[0])
 
     if cost == 1:
-      cf = Skewness
+        cf = Skewness
     elif cost == 3:
-      cf = ExpSquared
+        cf = ExpSquared
     else:
-      cf = LogCosh
+        cf = LogCosh
 
     for i in range(M):
 
@@ -322,7 +359,7 @@ def fastICA(z: np.ndarray, M: int = 120, max_iter: int = 50, Tolx: float = 0.000
             tolx = np.absolute(np.dot(w_new, w_old) - 1)
 
             if tolx <= Tolx:
-              break
+                break
 
             """
                     d. Set n = n + 1
@@ -333,91 +370,3 @@ def fastICA(z: np.ndarray, M: int = 120, max_iter: int = 50, Tolx: float = 0.000
         BB += np.dot(w_new.reshape(-1, 1), w_new.reshape(1, -1))
 
     return B
-
-
-def fastICA2(z: np.ndarray, M: int = 120, max_iter: int = 100, Tolx: float = 0.0001, cost: int = 1):
-    """
-    FastICA algorithm proposed by (Hyvärinen, Oja, 1997) and (Hyvärinen, 1999) to estimate the
-    projecction vector w. This algorithm is a fixed point algorithm with orthogonalization and
-    normalization steps, for a better estimation.
-
-    Parameters
-    ----------
-        z ([[float]]): Whitened extended observation matrix.
-        M (int): Number of iterations of the whole algorithm (that is, the maximum number of possibly estimated sources).
-        max_iter (int): Maximum number of iterations that fastICA will run to find an estimated
-            separation vector on the i-th iteration of main FOR loop.
-        Tolx (float): The toleration or convergence criteria that sepration vectors from fastICA must
-            satisfy.
-
-    Returns
-    ----------
-        ([float]): Array correspondig to current estimation of the projection vector.
-
-    """
-
-    B: np.ndarray = np.zeros((z.shape[0], M), dtype=float)
-    BB: np.ndarray = 0 * np.identity(z.shape[0])
-
-    if cost == 1:
-      cf = Skewness
-    elif cost == 3:
-      cf = ExpSquared
-    else:
-      cf = LogCosh
-
-    for i in range(M):
-
-        """
-        1. Initialize the vector w_i(0) and w_i(-1) with unit norm
-        """
-        w_new = np.random.rand(z.shape[0])
-        vec_norm = np.linalg.norm(w_new)
-        if vec_norm > 0:
-            w_new /= vec_norm
-
-        """
-                2. While |w_i(n)^{T}w_i(n - 1) - 1| > (0.0001 = Tolx)
-            """
-        n = 0
-        while True and n < max_iter:
-
-            w_old = np.copy(w_new)
-
-            """
-                    a. Fixed point algorithm
-                        w_i(n) = E{zg[w_i(n - 1)^{T}z]} - Aw_i(n - 1)
-                        with A = E{g'[w_i(n - 1)^{T}z]}
-                """
-            s = np.dot(w_old, z)
-            w_new = (z * cf.g(s)).mean(axis=1) - cf.dg_dw(s).mean() * w_old
-
-            """
-                    b. Orthogonalization
-                        w_i(n) = w_i(n) - BB^{T}w_i(n)
-                """
-            w_new -= np.dot(BB, w_new)
-
-            """
-                    c. Normalization
-                        w_i(n) = w_i(n)/||w_i(n)||
-                """
-            vec_norm = np.linalg.norm(w_new)
-            if vec_norm > 0:
-                w_new /= vec_norm
-
-            # Recalculate convergece criterion
-            tolx = np.absolute(np.dot(w_new, w_old) - 1)
-
-            if tolx <= Tolx:
-              break
-
-            """
-                    d. Set n = n + 1
-                """
-            n += 1
-
-        B[:, i] = w_new
-
-    return B
-
