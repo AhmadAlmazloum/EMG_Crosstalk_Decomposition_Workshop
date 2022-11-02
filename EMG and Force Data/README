@@ -4,7 +4,7 @@ Information about the files in WorkshopData folder:
 - The force files match the EMG files. 
 - There are 2 force MVC files related to two tasks of maximum effort, since force files are in Newtons, you can use the MVC file to normalize the force data. 
 - The number in the end of the filename is related to the force level performed. If it is equals to 45, it means that file is of a task performed at 45% of MVC. 
-
+- The matrix used for recording the EMG data is: ELSCH064NM4 - with the inter electrode distance of 4mm
 
 Information about the experiment protocol:
 
