@@ -370,3 +370,194 @@ def fastICA(z: np.ndarray, M: int = 120, max_iter: int = 50, Tolx: float = 0.000
         BB += np.dot(w_new.reshape(-1, 1), w_new.reshape(1, -1))
 
     return B
+
+
+def finding_duplicates(estimated_PTs, cov, sil, R, f_sampling):
+
+    print("\nIdentifying and removing duplicated Pulse Trains...\n")
+
+    alpha = 0.5 * (R / 2) * f_sampling / 1000
+
+    alpha = int(alpha) if (alpha - int(alpha) < 0.5) else (int(alpha) + 1)
+
+    RoCD = (3 * (R**1.4) / 640) + 0.3
+    if RoCD > 0.8:
+        RoCD = 0.8
+
+    ###########################
+    #    First Identifying    #
+    ###########################
+
+    not_MU_indexes = np.array([], dtype=int)
+
+    n_spikes = np.count_nonzero(estimated_PTs, axis=1)
+
+    mu_indexes = np.argsort(n_spikes, kind="mergesort")
+
+    mu_indexes = np.delete(mu_indexes, np.argwhere(cov[mu_indexes] == 0).reshape(-1))
+
+    interval_beg = len(mu_indexes) * 0.125
+    interval_beg = int(interval_beg) if (interval_beg - int(interval_beg) < 0.5) else (int(interval_beg) + 1)
+    interval_end = len(mu_indexes) * 0.875
+    interval_end = int(interval_end) if (interval_end - int(interval_end) < 0.5) else (int(interval_end) + 1)
+    mean_interval = n_spikes[mu_indexes[interval_beg:interval_end]].mean()
+
+    mu_indexes = np.delete(mu_indexes, np.argwhere(n_spikes[mu_indexes] <= 0.05 * mean_interval).reshape(-1))
+
+    print("\n\tPulse Trains considered outliers (removed): ", len(estimated_PTs) - len(mu_indexes), "\n")
+
+    comp_win = int(len(mu_indexes) * 0.25)
+
+    if comp_win < 3:
+        comp_win = len(mu_indexes)
+
+    step = int(comp_win * 0.5)
+
+    for itera in range(int(len(mu_indexes) / step + 1) - 1):
+
+        interval_beg = itera * step
+        interval_end = interval_beg + comp_win
+
+        if interval_end > len(mu_indexes):
+            interval_end = len(mu_indexes)
+            interval_beg = interval_end - int(1.5 * step) - 1
+
+        indexes_to_analyse = mu_indexes[interval_beg:interval_end]
+
+        pt = estimated_PTs[indexes_to_analyse, :]
+
+        n_MUs, duration = pt.shape
+
+        for i in range(n_MUs):
+
+            a_j = np.count_nonzero(pt[i, :])
+
+            pt_aux = np.zeros((2 * alpha, duration), dtype=int)
+
+            for count in range(alpha):
+                pt_aux[count, count + 1 :] = pt[i, : -count - 1]
+                pt_aux[count + alpha, : -count - 1] = pt[i, count + 1 :]
+
+            pt_aux = pt_aux.sum(axis=0) + pt[i, :]
+
+            for j in range(i + 1, n_MUs):
+
+                b_j = np.count_nonzero(pt[j, :])
+
+                c_j = np.count_nonzero((pt_aux + pt[j, :]) == 2)
+
+                if (c_j / a_j) >= RoCD and (c_j / b_j) >= RoCD:
+
+                    if sil[indexes_to_analyse[j]] > sil[indexes_to_analyse[i]]:
+
+                        not_MU_indexes = np.append(not_MU_indexes, indexes_to_analyse[i])
+
+                    elif sil[indexes_to_analyse[j]] == sil[indexes_to_analyse[i]]:
+
+                        if cov[indexes_to_analyse[j]] < cov[indexes_to_analyse[i]]:
+
+                            not_MU_indexes = np.append(not_MU_indexes, indexes_to_analyse[i])
+
+                        else:
+
+                            not_MU_indexes = np.append(not_MU_indexes, indexes_to_analyse[j])
+
+                    else:
+
+                        not_MU_indexes = np.append(not_MU_indexes, indexes_to_analyse[j])
+
+            not_MU_indexes = np.unique(not_MU_indexes)
+
+    mu_indexes = mu_indexes[np.isin(mu_indexes, not_MU_indexes, invert=True)]
+
+    ############################
+    #    Second Identifying    #
+    ############################
+
+    not_MU_indexes = np.array([], dtype=int)
+    possible_dup_MU = np.zeros((1, 2), dtype=int)
+
+    estimated_PTs = estimated_PTs[mu_indexes]
+    sil = sil[mu_indexes]
+    cov = cov[mu_indexes]
+
+    n_MUs, duration = estimated_PTs.shape
+
+    roa_matrix = np.zeros((n_MUs, n_MUs), dtype=float)
+
+    for i in range(n_MUs):
+
+        a_j = np.count_nonzero(estimated_PTs[i, :])
+
+        pt_aux = np.zeros((2 * alpha, duration), dtype=int)
+
+        for count in range(alpha):
+            pt_aux[count, count + 1 :] = estimated_PTs[i, : -count - 1]
+            pt_aux[count + alpha, : -count - 1] = estimated_PTs[i, count + 1 :]
+
+        pt_aux = pt_aux.sum(axis=0) + estimated_PTs[i, :]
+
+        for j in range(i + 1, n_MUs):
+
+            b_j = np.count_nonzero(estimated_PTs[j, :])
+
+            c_j = np.count_nonzero((pt_aux + estimated_PTs[j, :]) == 2)
+
+            roa_matrix[i, j] = (c_j * 100) / (a_j + b_j - c_j)
+
+            if (c_j / a_j) >= RoCD and (c_j / b_j) >= RoCD:
+
+                if sil[j] > sil[i]:
+
+                    not_MU_indexes = np.append(not_MU_indexes, i)
+
+                elif sil[j] == sil[i]:
+
+                    if cov[j] < cov[i]:
+
+                        not_MU_indexes = np.append(not_MU_indexes, i)
+
+                    else:
+
+                        not_MU_indexes = np.append(not_MU_indexes, j)
+
+                else:
+
+                    not_MU_indexes = np.append(not_MU_indexes, j)
+
+            else:
+
+                if (c_j / a_j) >= 0.15 and (c_j / b_j) >= 0.2:
+
+                    possible_dup_MU = np.append(possible_dup_MU, mu_indexes[[i, j]].reshape(1, -1), axis=0)
+
+        not_MU_indexes = np.unique(not_MU_indexes)
+
+    if len(not_MU_indexes) > 0:
+
+        mu_indexes = np.delete(mu_indexes, not_MU_indexes)
+        estimated_PTs = np.delete(estimated_PTs, not_MU_indexes, axis=0)
+
+    possible_dup_MU = np.delete(possible_dup_MU, 0, axis=0)
+    possible_dup_MU = np.delete(
+        possible_dup_MU, np.argwhere(np.isin(possible_dup_MU, mu_indexes, invert=True))[:, 0], axis=0
+    )
+
+    if len(possible_dup_MU) > 0:
+
+        for i in range(len(possible_dup_MU)):
+            possible_dup_MU[i, :] = np.argwhere(np.isin(mu_indexes, possible_dup_MU[i, :])).reshape(-1)
+
+        possible_dup_MU = 1 + np.sort(possible_dup_MU, axis=1)
+
+    roa_matrix = np.delete(roa_matrix, not_MU_indexes, axis=1)
+
+    roa_matrix = np.delete(roa_matrix, not_MU_indexes, axis=0)
+
+    roa_matrix += roa_matrix.T
+
+    print("\n\tPulse Trains considered duplicated (removed): ", len(n_spikes) - len(mu_indexes), "\n")
+    print("\n\tUnique Pulse Trains: ", len(mu_indexes), "\n")
+    print("\n\tPossible Remained Duplicated MUs: ", possible_dup_MU, "\n")
+
+    return mu_indexes, estimated_PTs[mu_indexes, :], possible_dup_MU, roa_matrix
