@@ -20,7 +20,9 @@ The presenters:
 
 - [Leonardo Abdala Elias](http://lattes.cnpq.br/5429275286295501)
 
-Open this notebook by signing in to your Google account to open it on Google Colab [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MateusASchneiderCastilhos/EMG_Crosstalk_Decomposition_Workshop/blob/main/EMG_Crosstalk_Decomposition_Workshop.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MateusASchneiderCastilhos/EMG_Crosstalk_Decomposition_Workshop/blob/main/EMG_Crosstalk_Decomposition_Workshop.ipynb) Open this notebook by signing in to your Google account to open it on Google Colab.
+
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MateusASchneiderCastilhos/EMG_Crosstalk_Decomposition_Workshop/main?filepath=EMG_Crosstalk_Decomposition_Workshop.ipynb) Open this notebook with myBinder.
 
 ## References
 
